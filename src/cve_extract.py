@@ -1,13 +1,13 @@
-import re
-import time
-from typing import List, Set, Dict, Any
-import requests
+import re #l'outil regex pour repérer des motifs de text (ici les CVE)
+import time # on charge l'outil "pause" pour ralentir entre les requêtes 
+from typing import List, Set, Dict, Any 
+import requests #librairie qui permet de faire des requêtes HTTP pour aller cherhcher le JSON sur le site 
 
 
 CVE_REGEX = re.compile(r"CVE-\d{4}-\d{4,7}")
 
 
-def bulletin_to_json_url(bulletin_url: str) -> str:
+def bulletin_to_json_url(bulletin_url: str) -> str: #fonction qui transforme un lien de bulletin (page web ) en lien JSON
     """
         Convertit l’URL "HTML" d’un bulletin CERT-FR (ANSSI) en URL de sa version JSON.
 
@@ -27,15 +27,15 @@ def bulletin_to_json_url(bulletin_url: str) -> str:
         L’URL pointant vers la ressource JSON associée au bulletin.
     
     """
-    url = bulletin_url.strip()
-    if not url.endswith("/"):
-        url += "/"
-    if not url.endswith("json/"):
+    url = bulletin_url.strip() # Je nettoie l'url en enlevant les espaces au début et à la fin
+    if not url.endswith("/"): #Si l'url ne finit pas pr /, je l'ajoute pour éviter un lien mal formé
+        url += "/" #ajout de /
+    if not url.endswith("json/"): #Si l'url ne finit pas déjà par json/, je l'ajoute pour pointer vers la version JSON du bulletin 
         url += "json/"
-    return url
+    return url #Je renvoie l'url JSON finale.
 
 
-def extract_cves_from_json_data(data: Dict[str, Any]) -> Set[str]:
+def extract_cves_from_json_data(data: Dict[str, Any]) -> Set[str]: # fonction qui reçoit un dictionnaire JSON et va en extraire les CVEs.
     
     """
     Extrait l'ensemble des identifiants CVE présents dans un dictionnaire JSON ANSSI.
@@ -61,20 +61,20 @@ def extract_cves_from_json_data(data: Dict[str, Any]) -> Set[str]:
     
     """
     
-    cves: Set[str] = set()
+    cves: Set[str] = set() #Je crée un set vide pour stocker les CVEs uniques (sans doublons)
 
-    if isinstance(data.get("cves"), list):
-        for item in data["cves"]:
-            if isinstance(item, dict):
-                name = item.get("name")
-                if isinstance(name, str) and CVE_REGEX.fullmatch(name):
-                    cves.add(name)
+    if isinstance(data.get("cves"), list): #Je vérifie si dans le JSON, la clé "cves" existe et si c'est une liste.
+        for item in data["cves"]: # Je parcours chaque élément de cette liste
+            if isinstance(item, dict): #Je vérifie que l'élément est un dictionnaire
+                name = item.get("name") #Je récupère la valeur associée à la clé "name"
+                if isinstance(name, str) and CVE_REGEX.fullmatch(name): # Je vérifie que cette valeur est une string et qu'elle correspond au format CVE
+                    cves.add(name) #Si tout est OK, j'ajoute cette CVE au set
 
-    cves.update(CVE_REGEX.findall(str(data)))
-    return cves
+    cves.update(CVE_REGEX.findall(str(data))) #Je convertis tout le dictionnaire JSON en string et j'utilise la regex pour trouver toutes les occurrences de CVE. Je les ajoute au set (déduplication automatique)
+    return cves #On renvoit le set de CVE trouvées.
 
 
-def extract_cves(bulletin_url: str, timeout: int = 15, delay: float = 2.0) -> List[str]:
+def extract_cves(bulletin_url: str, timeout: int = 15, delay: float = 2.0) -> List[str]: # fonction qui prend un lien de bulletin et renvoie la liste des CVEs
     
     """
     Récupère le JSON d’un bulletin CERT-FR (ANSSI) et renvoie la liste des CVE extraites.
@@ -104,19 +104,19 @@ def extract_cves(bulletin_url: str, timeout: int = 15, delay: float = 2.0) -> Li
     
     """
     
-    json_url = bulletin_to_json_url(bulletin_url)
+    json_url = bulletin_to_json_url(bulletin_url) # Je transforme le lien bulletin en lien JSON
 
-    try:
-        response = requests.get(json_url, timeout=timeout)
+    try: #Je tente au cas où ca plante (prévention d'erreurs )
+        response = requests.get(json_url, timeout=timeout) #Je fais une requête HTTP GET pour récupérer le JSON du bulletin
         response.raise_for_status()
-        data = response.json()
-        return sorted(extract_cves_from_json_data(data))
+        data = response.json() #Je transforme la réponse en dictionnaire Python (JSON to dict)
+        return sorted(extract_cves_from_json_data(data)) #J'extrait les CVEs du dictionnaire JSON et je les renvoie sous forme de liste triée
 
-    except requests.RequestException as e:
-        print(f"[ERROR] HTTP {json_url} → {e}")
-        return []
-    except ValueError as e:
-        print(f"[ERROR] JSON invalide {json_url} → {e}")
+    except requests.RequestException as e: #Si problème réseau, timeout, http pas ok...
+        print(f"[ERROR] HTTP {json_url} → {e}") # On affiche l'erreur et je renvoie la liste vide 
+        return [] 
+    except ValueError as e: #Si la réponse nest pas un JSON valide...
+        print(f"[ERROR] JSON invalide {json_url} → {e}") #on affiche l'erreur et je renvoie la liste vide
         return []
     finally:
-        time.sleep(delay)
+        time.sleep(delay) # quoi qu'il arrive, je fais une pause avant la prochaine requête pour éviter de surcharger le site
