@@ -8,9 +8,14 @@ FEED_URL = "https://www.cert.ssi.gouv.fr/feed/"
 
 def fetch_all_bulletins() -> List[Dict[str, str]]:
     """
+    
+    
     Récupère les bulletins ANSSI via le flux RSS global.
     On télécharge le flux avec requests+certifi (SSL OK),
     puis on parse avec feedparser à partir des bytes (pas de SSL).
+    
+    
+    
     """
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; ANSSI-Vuln-Intel/1.0)",

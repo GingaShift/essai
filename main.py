@@ -3,6 +3,15 @@ from src.cve_extract import extract_cves
 import pandas as pd
 
 def main():
+    
+    """
+    
+    
+    
+    """
+    
+    
+    
     bulletins = fetch_all_bulletins()
 
     rows = []
@@ -27,7 +36,7 @@ def main():
     df = pd.DataFrame(rows)
     df.to_csv("output_bulletins_cves.csv", index=False, encoding="utf-8")
 
-    print(f"OK ✅ bulletins={len(bulletins)}  lignes={len(df)}")
+    print(f"OK : bulletins={len(bulletins)}  lignes={len(df)}")
     print("Fichier créé : output_bulletins_cves.csv")
 
 if __name__ == "__main__":
