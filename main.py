@@ -1,22 +1,34 @@
-import requests 
-import feedparser
-URL_RSS_AVIS = "https://www.cert.ssi.gouv.fr/avis/feed/"
+from src.rss_fetch import fetch_all_bulletins
+from src.cve_extract import extract_cves
+import pandas as pd
 
-resp = requests.get(URL_RSS_AVIS, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
-resp.raise_for_status()
+def main():
+    bulletins = fetch_all_bulletins()
 
-rss = feedparser.parse(resp.text)
+    rows = []
+    total = len(bulletins)
+    print(f"Traiteement de {total} bulletins...\n")
+    
+    for i,b in enumerate(bulletins, start=1):
+        if i  == 1 or i % 5 == 0 or i == total :
+            print(f"progress: {i}/{total} bulletins", end="\r")
+            
+        cves  = extract_cves(b["link"], delay = 0.2) 
+    
+        for cve in cves:
+            rows.append({
+                "type": b["type"],
+                "published": b["published"],
+                "title": b["title"],
+                "link": b["link"],
+                "cve": cve,
+            })
 
-bulletins = []
+    df = pd.DataFrame(rows)
+    df.to_csv("output_bulletins_cves.csv", index=False, encoding="utf-8")
 
-for entry in rss.entries:
-    bulletins.append({
-        "type": "avis",
-        "title": entry.title,
-        "published": getattr(entry, "published", None),
-        "link": entry.link,
-    })
+    print(f"OK ✅ bulletins={len(bulletins)}  lignes={len(df)}")
+    print("Fichier créé : output_bulletins_cves.csv")
 
-print("Bulletins récupérés :", len(bulletins))
-print("Exemple (1er bulletin) :", bulletins[0])
-
+if __name__ == "__main__":
+    main()
