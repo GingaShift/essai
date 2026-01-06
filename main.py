@@ -3,8 +3,7 @@ from src.cve_extract import extract_cves #J'importe la fonction qui va extraire 
 from src.enrich import enrich_cve
 from src.features import add_risk_score, add_risk_level, top_cves, vendor_summary
 from src.alert import add_alert_fields
-
-from src.mailer import send_test_email
+from src.notify import notify_subscribers
 import pandas as pd #J'importe pandas pour manipuler les données et créer le fichier CSV.
 import time 
 
@@ -105,8 +104,6 @@ def main():
     print(final_df["alert_level"].value_counts(dropna=False))
     final_df.to_csv("output_bulletins_cves_enriched_alerts.csv", index=False, encoding="utf-8")
     
-    send_test_email()
-    print("Test email sent.")
-
+    notify_subscribers(final_df, dry_run=False)
 if __name__ == "__main__":
     main()

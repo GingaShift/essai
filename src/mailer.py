@@ -2,44 +2,46 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 
+from dotenv import load_dotenv
 
-FROM_EMAIL = "pythonaeeproject@atomicmail.io"
-
-# ⚠️ IMPORTANT : ces 2 valeurs doivent venir des "SMTP settings" atomicmail
-SMTP_SERVER = os.getenv("SMTP_SERVER", "mail.atomicmail.io")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_ENCRYPTION = os.getenv("SMTP_ENCRYPTION", "starttls")  # "starttls" ou "ssl"
+load_dotenv()  # charge le fichier .env à la racine du projet
 
 
 def send_email_smtp(to_email: str, subject: str, body: str):
-    password = os.getenv("ATOMICMAIL_PASSWORD")
-    if not password:
-        raise RuntimeError("ATOMICMAIL_PASSWORD n'est pas défini (variable d'environnement)")
+    smtp_server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_encryption = os.getenv("SMTP_ENCRYPTION", "starttls").lower()
 
-    msg = MIMEText(body)
-    msg["From"] = FROM_EMAIL
+    from_email = os.getenv("FROM_EMAIL")
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+
+    if not from_email:
+        raise RuntimeError("FROM_EMAIL manquant dans .env")
+    if not smtp_username or not smtp_password:
+        raise RuntimeError("SMTP_USERNAME/SMTP_PASSWORD manquants dans .env")
+
+    msg = MIMEText(body, _charset="utf-8")
+    msg["From"] = from_email
     msg["To"] = to_email
     msg["Subject"] = subject
 
-    if SMTP_ENCRYPTION.lower() == "ssl":
-        server = smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=20)
-        server.login(FROM_EMAIL, password)
-        server.send_message(msg)
-        server.quit()
-        return
+    if smtp_encryption == "ssl":
+        server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20)
+    else:
+        server = smtplib.SMTP(smtp_server, smtp_port, timeout=20)
+        server.ehlo()
+        server.starttls()
+        server.ehlo()
 
-    server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=20)
-    server.ehlo()
-    server.starttls()
-    server.ehlo()
-    server.login(FROM_EMAIL, password)
+    server.login(smtp_username, smtp_password)
     server.send_message(msg)
     server.quit()
 
 
 def send_test_email():
     send_email_smtp(
-        to_email="pythonaeeproject@atomicmail.io",
+        to_email=os.getenv("TEST_TO_EMAIL", os.getenv("FROM_EMAIL", "")),
         subject="TEST - Projet ANSSI (Python)",
-        body="Si tu lis ça, l'envoi SMTP fonctionne ✅"
+        body="Si tu lis ça, l'envoi SMTP Gmail fonctionne ✅"
     )
