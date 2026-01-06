@@ -18,8 +18,22 @@ MAX_CVE_ENRICH = 80 if DEV_FAST else None  # en dev on limite, en rendu tu mets 
 def main():
     
     """
-    
-    
+    Fonction principale du projet ANSSI Vulnerability Intelligence.
+
+    Cette fonction orchestre l’ensemble du pipeline de veille de sécurité :
+    1) Récupération des bulletins ANSSI (avis et alertes) via le flux RSS.
+    2) Extraction des identifiants CVE associés à chaque bulletin.
+    3) Construction d’un premier jeu de données CSV (bulletins ↔ CVE).
+    4) Enrichissement des CVE via les API MITRE (CVSS, description, éditeur)
+    et FIRST EPSS (probabilité d’exploitation).
+    5) Fusion des données brutes et enrichies dans un dataset consolidé.
+    6) Calcul de métriques métier (risk_score, risk_level).
+    7) Génération de vues analytiques (Top CVE, résumé par éditeur).
+    8) Application de règles d’alerte (LOW / MEDIUM / HIGH / CRITICAL).
+    9) Notification des abonnés par email selon leurs règles définies.
+
+    La fonction produit plusieurs fichiers CSV intermédiaires et finaux,
+    et permet un mode de test (dry_run) ou un envoi réel des notifications.
     
     """
     
@@ -54,7 +68,7 @@ def main():
     print(f"OK : bulletins={len(bulletins)}  lignes={len(df)}") # J'affiche combien de bulletins ont été traités
     print("Fichier créé : output_bulletins_cves.csv") #J'indique le csv
 
-# ---- Enrichissement (une fois par CVE unique) ----
+# Enrichissement (une fois par CVE unique)
     unique_cves = sorted(df["cve"].unique().tolist()) #Je prends toutes les CVE du DataFrame, je supprime les doublons (par unique()), je transforme ça en liste puis je trie pour avoir un ordre stable et lisible
     if MAX_CVE_ENRICH is not None: # On peut mettre une limite de cve à enrichir, c'est une technique pour les tests et éviter trop d'appels d'api
         unique_cves = unique_cves[:MAX_CVE_ENRICH]
@@ -95,15 +109,15 @@ def main():
     top10.to_csv("top10_cves.csv", index=False, encoding="utf-8") 
     print("Fichier créé : top10_cves.csv")
 
-    # Résumé par éditeur
-    vendors = vendor_summary(final_df)
+    
+    vendors = vendor_summary(final_df) #J'appelle une fonction qui regroupe les données par éditeur pour calculer des stats(nombre de CVE, risques,etc..)
     vendors.to_csv("vendor_summary.csv", index=False, encoding="utf-8") #Je crée une vue stratégique du risque par fournisseur.
     print("Fichier créé : vendor_summary.csv")
     
-    final_df = add_alert_fields(final_df)
-    print(final_df["alert_level"].value_counts(dropna=False))
-    final_df.to_csv("output_bulletins_cves_enriched_alerts.csv", index=False, encoding="utf-8")
+    final_df = add_alert_fields(final_df) #J'ajoute au DataFrame des colonnes d'alerte (comme "alert_level" et "alert_reason") en appliquant des règles CVSS/EPSS
+    print(final_df["alert_level"].value_counts(dropna=False)) # J'affiche combien il y a de lignes low, medium, high et critical (mêmes si certaines valeurs sont manquantes)
+    final_df.to_csv("output_bulletins_cves_enriched_alerts.csv", index=False, encoding="utf-8") #J'enregistre la version finale du dataset enrichi 
     
-    notify_subscribers(final_df, dry_run=False)
+    notify_subscribers(final_df, dry_run=False) #Je lance l'envoi réel des mails selon les abonnées et leur règles 
 if __name__ == "__main__":
     main()
